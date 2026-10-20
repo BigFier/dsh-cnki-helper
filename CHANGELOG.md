@@ -1,5 +1,15 @@
 # 更新记录
 
+## 1.1.1 — 2026-10-20
+
+处理对 `dsh-builtin-browser` 的依赖问题。
+
+**修复**
+
+- `browser` 不再写进必需的 `inject`。没装 `dsh-builtin-browser` 的机器上，原来插件会一直等这个服务、静默不激活，工具不出现且无报错。
+- 改为 `inject: ['tools']` + 运行时 `ctx.get('browser')`。取不到时三个工具仍正常注册，`cnki_status` 输出明确的修复指引。
+- 试过 `inject: { required: ['tools'], optional: ['browser'] }` 的对象形式，在本机 0.2.0-rc.1 上导致插件整个不加载，已放弃。
+
 ## 1.1.0 — 2026-10-20
 
 重写为基于 `ctx.browser` 的实现，不再自带浏览器。

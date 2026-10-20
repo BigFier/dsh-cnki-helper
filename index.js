@@ -27,8 +27,17 @@ import {
 
 export const name = 'dsh-cnki-helper'
 
-/** tools 注册工具；browser 提供内置浏览器接缝。 */
-export const inject = ['tools', 'browser']
+/**
+ * 依赖。
+ *
+ * 只把 `tools` 写成必需的。`browser`（ctx.browser）由 dsh-builtin-browser
+ * 这个独立 bundle 提供，不是 dsh-base 自带；若写成必需 inject，目标机器没装
+ * 时插件会永远等这个服务、静默不激活，工具也不出现，且没有任何报错。
+ *
+ * 因此 browser 不放进 inject，改在 apply 里用 ctx.get('browser') 取（Service
+ * 文档给出的可选访问形式，取不到返回 undefined），工具里再给明确指引。
+ */
+export const inject = ['tools']
 
 /**
  * 配置 schema。
@@ -162,6 +171,40 @@ export function apply(ctx, config) {
   }
 
   /**
+   * 浏览器接缝是否就绪。
+   * ctx.browser 由 dsh-builtin-browser 提供，是独立 bundle，不一定装了。
+   * 取不到时不能直接抛错，否则三个工具全废；改为返回明确的修复指引。
+   */
+  const MISSING_BROWSER =
+    '缺少浏览器能力：ctx.browser 不可用。\n\n' +
+    '本插件依赖 DSH 的 dsh-builtin-browser（提供 ctx.browser 与 browser_* 工具），' +
+    '它不是 dsh-base 自带的独立 bundle。\n\n' +
+    '修复：在 DSH 里安装 dsh-builtin-browser，确认它出现在 profile 的 ' +
+    'dsh.profile.bundles 里，然后重启 DSH 宿主。\n' +
+    '装好之后 cnki_status 会显示「浏览器：DSH 内置浏览器」。'
+
+  function browser() {
+    // 可选访问：Service 文档写的 ctx.get("browser")，未注册时返回 undefined。
+    let b
+    try {
+      b = typeof ctx.get === 'function' ? ctx.get('browser') : ctx.browser
+    } catch {
+      b = undefined
+    }
+    if (!b || typeof b.open !== 'function') throw new Error(MISSING_BROWSER)
+    return b
+  }
+
+  function hasBrowser() {
+    try {
+      const b = typeof ctx.get === 'function' ? ctx.get('browser') : ctx.browser
+      return !!b && typeof b.open === 'function'
+    } catch {
+      return false
+    }
+  }
+
+  /**
    * 浏览器会话。
    *
    * 关键：用 exec.agent.id（DSH 会话 id）作为 open 的 label——这正是
@@ -173,7 +216,7 @@ export function apply(ctx, config) {
     const key = exec?.agent?.id ?? 'default'
     const hit = sessions.get(key)
     if (hit) return hit
-    const s = await ctx.browser.open(key)
+    const s = await browser().open(key)
     sessions.set(key, s)
     return s
   }
@@ -183,7 +226,7 @@ export function apply(ctx, config) {
     // ⚠ CDP 的 Runtime.evaluate 只可靠带回原始值；返回对象时会丢成 {}。
     // 所以统一把脚本包成 JSON.stringify(...) 再取回，由本层解析。
     const wrapped = `(() => { try { const r = (${js})(${arg !== undefined ? JSON.stringify(arg) : ''}); return JSON.stringify({ ok: 1, v: r === undefined ? null : r }); } catch (e) { return JSON.stringify({ ok: 0, e: String(e && e.message || e) }); } })()`
-    const res = await ctx.browser.execute(s, { script: wrapped })
+    const res = await browser().execute(s, { script: wrapped })
     let raw = res
     if (res && typeof res === 'object' && 'ok' in res) {
       if (!res.ok) throw new Error(`页面脚本异常：${String(res.exception).slice(0, 160)}`)
@@ -206,7 +249,7 @@ export function apply(ctx, config) {
 
   async function goto(exec, url) {
     const s = await ensureSession(exec)
-    await ctx.browser.navigate(s, { url })
+    await browser().navigate(s, { url })
   }
 
   function resolveDir() {
@@ -473,6 +516,20 @@ export function apply(ctx, config) {
         try {
           n = readdirSync(dir).filter((f) => f.toLowerCase().endsWith('.pdf')).length
         } catch {}
+
+        // 没装 dsh-builtin-browser 时，先给出结论而不是让人去猜。
+        if (!hasBrowser()) {
+          return {
+            ok: false,
+            report: [
+              '浏览器：❌ ctx.browser 不可用',
+              `下载目录：${dir}  ${n} 个 PDF`,
+              `限速：单次最多 ${cfg.maxPerRun} 篇，篇间 ${cfg.delayMs} ms`,
+              '',
+              MISSING_BROWSER,
+            ].join('\n'),
+          }
+        }
 
         const lines = [
           '浏览器：DSH 内置浏览器（ctx.browser，与 browser_* 工具共享会话）',

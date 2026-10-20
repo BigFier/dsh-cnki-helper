@@ -86,6 +86,8 @@ iframe 触发后 Chromium 先写一个 `<guid>.tmp`，写完才改名。所以�
 
 需要 DSH 桌面端 0.2.0-rc.1 或以上。
 
+**还依赖一个插件：`dsh-builtin-browser`。** 它提供 `ctx.browser` 和 `browser_*` 工具，不是 DSH 自带的，可能要单独装。没装的话本插件不会报错，但 `cnki_status` 会告诉你缺什么。
+
 把下面这段整个发给你的 AI（DSH、Claude Code、Cursor 都行），它会自己做完：
 
 ```
@@ -95,23 +97,32 @@ iframe 触发后 Chromium 先写一个 `<guid>.tmp`，写完才改名。所以�
 
 你要自动完成：
 1. 克隆仓库到本地任意目录
-2. 用 plugin_manager 的 install_bundle 安装，target 填克隆下来的目录
-3. 安装完成后，确认 profile 的 package.json 里 dsh.profile.bundles 含有 dsh-cnki-helper
+2. 确认已装 dsh-builtin-browser（提供 ctx.browser）。
+   没有的话先装它，并确认在 profile 的 dsh.profile.bundles 里。
+3. 用 plugin_manager 的 install_bundle 安装，target 填克隆下来的目录
+4. 安装完成后，确认 profile 的 package.json 里 dsh.profile.bundles 含有 dsh-cnki-helper
    —— install_bundle 不一定帮你写这一条，没有就手动加
-4. 重启 DSH 宿主
-5. 重启后调一次 cnki_status，把输出给我看
+5. 重启 DSH 宿主
+6. 重启后调一次 cnki_status，把输出给我看。
+   如果显示「缺少浏览器能力」，说明第 2 步没做成，按它给的提示解决。
 
 遇到报错自己排查，修不了再问我。说话简单直白。
 ```
 
-> **为什么第 3 步要单独检查？** 因为 `install_bundle` 只负责装依赖和建链接，不负责把包名写进 `dsh.profile.bundles`。少了这一步，重启后插件不会加载，工具也不会出现——而且没有任何报错。
+> **为什么第 4 步要单独检查？** 因为 `install_bundle` 只负责装依赖和建链接，不负责把包名写进 `dsh.profile.bundles`。少了这一步，重启后插件不会加载，工具也不会出现——而且没有任何报错。
 
-手动装也行，两条命令：
+手动装也行：
 
 ```bash
 git clone https://github.com/BigFier/dsh-cnki-helper.git
 # 然后在 DSH 里让 agent 执行 plugin_manager install_bundle <路径>
 ```
+
+### 为什么 `browser` 不在 inject 里
+
+`ctx.browser` 由 `dsh-builtin-browser` 提供。如果把它写进必需的 `inject`，没装这个 bundle 的机器上插件会一直等服务、**静默不激活**——工具不出现，也没有报错，很难查。
+
+所以代码里只 inject `tools`，`browser` 用 `ctx.get('browser')` 在运行时取。取不到时三个工具照常注册，`cnki_status` 会输出明确的修复指引。这是实测踩出来的：写成 `{ required, optional }` 对象形式在本机反而让插件整个不加载。
 
 ---
 
@@ -181,7 +192,7 @@ UTF-8 中文会被切坏——字符串丢引号、语法直接报错。用文�
 ## 已知限制
 
 - **只支持 Windows。** 下载目录、路径分隔符都是按 Windows 写的。理论上改几行能在 macOS/Linux 跑，但没测过。
-- **依赖 DSH 内置浏览器。** 这是它免验证码的原因，也是它的边界——内置浏览器出问题，插件就不能用。
+- **依赖 DSH 内置浏览器。** 这是它免验证码的原因，也是它的边界——内置浏览器出问题，插件就不能用。需要 `dsh-builtin-browser` 这个独立插件，没装时工具仍会出现，但 `cnki_status` 会报「缺少浏览器能力」。
 - **授权范围决定能不能下。** 机构账号没订的刊物，PDF 按钮点了不会有文件。这不是插件的问题。
 - **没有进度显示。** 下载 8 篇的时候，工具会一直卡到结束才返回。要中途知道进度，只能拆成几次调。
 

@@ -1,13 +1,13 @@
 {
   "name": "dsh-cnki-helper",
-  "version": "1.1.0",
-  "description": "在 DSH 会话里检索知网并下载 PDF。复用内置浏览器的登录态，实测零验证码。",
+  "version": "1.1.1",
+  "description": "鍦?DSH 浼氳瘽閲屾绱㈢煡缃戝苟涓嬭浇 PDF銆傚鐢ㄥ唴缃祻瑙堝櫒鐨勭櫥褰曟€侊紝瀹炴祴闆堕獙璇佺爜銆?,
   "keywords": [
     "dsh-plugin",
     "cnki",
-    "知网",
+    "鐭ョ綉",
     "pdf",
-    "文献"
+    "鏂囩尞"
   ],
   "license": "MIT",
   "type": "module",
