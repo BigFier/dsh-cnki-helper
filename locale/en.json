@@ -1,0 +1,6 @@
+{
+  "meta": {
+    "title": "CNKI Literature Helper",
+    "description": "Search CNKI and download Chinese academic PDFs from within a session. Solves slider and click-word CAPTCHAs automatically and reuses a persisted login."
+  }
+}

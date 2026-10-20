@@ -1,0 +1,9 @@
+# dsh-cnki-helper bundle layer. 这里只是首次安装的默认值，
+# 之后在 profile 的 cordis.patch.yml 里覆盖时，config 是整体替换，不是深合并。
+- insert:
+    - id: dsh-cnki-helper
+      name: 'dsh-cnki-helper'
+      config:
+        downloadDir: ''
+        maxPerRun: 10
+        delayMs: 8000
